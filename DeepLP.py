@@ -11,12 +11,14 @@ class DeepLP:
         self.sess   = session
         self.lr     = lr
         self.iter_  = iter_ # Layer size
-        shape          = [None, num_nodes]
-        self.X         = tf.placeholder("float", shape=shape)
-        self.y         = tf.placeholder("float", shape=shape)
-        self.unlabeled = tf.placeholder("float", shape=shape)
-        self.labeled   = tf.placeholder("float", shape=shape)
-        self.masked    = tf.placeholder("float", shape=shape)
+
+        shape             = [None, num_nodes]
+        self.X            = tf.placeholder("float", shape=shape)
+        self.y            = tf.placeholder("float", shape=shape)
+        self.unlabeled    = tf.placeholder("float", shape=shape)
+        self.labeled      = tf.placeholder("float", shape=shape)
+        self.masked       = tf.placeholder("float", shape=shape)
+        self.true_labeled = tf.placeholder("float", shape=shape)
 
         self.yhat = self.forwardprop()
         self.backwardprop()
@@ -44,27 +46,29 @@ class DeepLP:
 
     def backwardprop(self):
         # Backward propagation
-        self.loss = tf.reduce_mean(tf.multiply(self.masked, (self.y-self.yhat) ** 2 ))
+        self.loss = self.calc_loss(self.masked,self.y,self.yhat)
         self.updates = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
+
+    def calc_loss(self,mask,y,yhat):
+        return tf.reduce_mean(tf.multiply(mask, (y-yhat) ** 2 ))
 
     def labelprop(self,data):
         init = tf.global_variables_initializer()
         self.sess.run(init)
 
-        pred = self.sess.run(self.yhat, feed_dict={self.X:data['X'],
+        pred = self.eval(self.yhat,data)
+        return pred
+
+    def eval(self,tensor,data):
+        return self.sess.run(tensor, feed_dict={self.X:data['X'],
                                     self.y:data['y'],
                                     self.unlabeled:data['unlabeled'],
                                     self.labeled:data['labeled'],
-                                    self.masked:data['masked']})
-        return pred
+                                    self.masked:data['masked'],
+                                    self.true_labeled:data['true_labeled']})
 
     def print_train(self,epoch,data):
-        lossb = self.sess.run(self.loss, feed_dict={self.X:data['X'],
-                            self.y:data['y'],
-                            self.unlabeled:data['unlabeled'],
-                            self.labeled:data['labeled'],
-                            self.masked:data['masked']})
-
+        lossb = self.eval(self.loss,data)
         print("epoch:",epoch,"loss:",lossb)
 
 
@@ -72,14 +76,19 @@ class DeepLP:
         init = tf.global_variables_initializer()
         self.sess.run(init)
         n = len(data['X'])
+        leave_one_losses = []
+        labeled_losses = []
 
         for epoch in range(epochs):
             # Train with each example
+
             for i in range(n):
-                self.sess.run(self.updates, feed_dict={self.X:data['X'][i:i+1],
-                                            self.y:data['y'],
-                                            self.unlabeled:data['unlabeled'][i:i+1],
-                                            self.labeled:data['labeled'][i:i+1],
-                                            self.masked:data['masked'][i:i+1]})
+                self.eval(self.updates,data)
+
+            # leave_one_loss = self.sess.run(self.loss)
+            # labeled_loss = self.sess.run(self.calc_loss(self.true_labeled,self.y,self.yhat))
+            # unlabeled_loss = self.sess.run(self.calc_loss((1-self.true_labeled),self.y,self.yhat))
+            # total_loss = self.sess.run(self.calc_loss(self.labeled,self.y,self.yhat))
+
             if epoch % 1 == 0:
                 self.print_train(epoch,data)
