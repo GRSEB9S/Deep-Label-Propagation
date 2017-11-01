@@ -50,7 +50,12 @@ class DeepLP:
         self.updates = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
 
     def calc_loss(self,mask,y,yhat):
-        return tf.reduce_mean(tf.multiply(mask, (y-yhat) ** 2 ))
+        loss_mat = tf.multiply(mask, (y-yhat) ** 2 )
+        return tf.reduce_sum(loss_mat) / tf.count_nonzero(loss_mat,dtype=tf.float32)
+
+    def calc_accuracy(self,y,yhat):
+        return tf.reduce_mean(tf.cast(tf.equal(tf.round(yhat),y),tf.float32))
+
 
     def labelprop(self,data):
         init = tf.global_variables_initializer()
@@ -67,28 +72,31 @@ class DeepLP:
                                     self.masked:data['masked'],
                                     self.true_labeled:data['true_labeled']})
 
-    def print_train(self,epoch,data):
-        lossb = self.eval(self.loss,data)
-        print("epoch:",epoch,"loss:",lossb)
+    def save_params(self,epoch,data,n):
+        pass
 
+    def save(self,epoch,data,n):
+        labeled_loss = self.eval(self.loss,data)
+        unlabeled_loss = self.eval(self.calc_loss((1-self.true_labeled),self.y,self.yhat),data)
+        accuracy = self.eval(self.calc_accuracy(self.y,self.yhat),data)
+        self.labeled_losses.append(labeled_loss)
+        self.unlabeled_losses.append(unlabeled_loss)
+        self.accuracies.append(accuracy)
+        if epoch % 1 == 0 or epoch == -1:
+            print("epoch:",epoch,"labeled loss:",labeled_loss,"unlabeled loss:",unlabeled_loss,"accuracy:",accuracy)
+        self.save_params(epoch,data,n)
 
     def train(self,data,epochs):
         init = tf.global_variables_initializer()
         self.sess.run(init)
         n = len(data['X'])
-        leave_one_losses = []
-        labeled_losses = []
+        self.labeled_losses = []
+        self.unlabeled_losses = []
+        self.accuracies = []
+        self.save(-1,data,n)
 
         for epoch in range(epochs):
             # Train with each example
-
             for i in range(n):
                 self.eval(self.updates,data)
-
-            # leave_one_loss = self.sess.run(self.loss)
-            # labeled_loss = self.sess.run(self.calc_loss(self.true_labeled,self.y,self.yhat))
-            # unlabeled_loss = self.sess.run(self.calc_loss((1-self.true_labeled),self.y,self.yhat))
-            # total_loss = self.sess.run(self.calc_loss(self.labeled,self.y,self.yhat))
-
-            if epoch % 1 == 0:
-                self.print_train(epoch,data)
+            self.save(epoch,data,n)
