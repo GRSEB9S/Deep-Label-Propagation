@@ -56,7 +56,6 @@ class DeepLP:
     def calc_accuracy(self,y,yhat):
         return tf.reduce_mean(tf.cast(tf.equal(tf.round(yhat),y),tf.float32))
 
-
     def labelprop(self,data):
         init = tf.global_variables_initializer()
         self.sess.run(init)
@@ -82,7 +81,7 @@ class DeepLP:
         self.labeled_losses.append(labeled_loss)
         self.unlabeled_losses.append(unlabeled_loss)
         self.accuracies.append(accuracy)
-        if epoch % 1 == 0 or epoch == -1:
+        if epoch % 10 == 0 or epoch == -1:
             print("epoch:",epoch,"labeled loss:",labeled_loss,"unlabeled loss:",unlabeled_loss,"accuracy:",accuracy)
         self.save_params(epoch,data,n)
 

@@ -57,10 +57,10 @@ def rbf_kernel(X,s=None):
     return K
 
 def accuracy(y,yhat):
-    return np.mean(yhat == y)
+    return np.mean((yhat == y))
 
 def rmse(y,yhat):
-    return np.mean(yhat - y)**2
+    return np.mean((yhat - y)**2)
 
 def objective(Ly,Uy_lp,W):
     labels = np.hstack((Ly,Uy_lp)).reshape(100,1)
