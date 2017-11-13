@@ -54,22 +54,28 @@ start = time.time()
 import csv
 import sys
 
-w = csv.writer(open('no_reg.csv', 'a'), delimiter=',')
-w1 = csv.writer(open('reg.csv', 'a'), delimiter=',')
+outfile = open('no_reg.csv', 'a')
+writer=csv.writer(outfile)
+outfile1 = open('reg.csv', 'a')
+writer1=csv.writer(outfile1)
 
 theta = np.random.uniform(0,4.5,4)
 print("----------------------------------")
-print("theta:",str(i),theta)
+print("theta:",theta)
 print("----------------------------------")
 sess = tf.Session()
 
 dlp_wrbf = DeepLP_WeightedRBF(10, num_nodes, features, graph, np.var(features), theta, 0.01, sess, 0)
 dlp_wrbf.train(data,test_data,100)
 
-w.writerow([dlp_wrbf.accuracies[-1],dlp_wrbf.labeled_losses[-1],dlp_wrbf.unlabeled_losses[-1],dlp_wrbf.sol_accuracies[-1],dlp_wrbf.sol_unlabeled_losses[-1]])
+
+
+writer.writerow(np.concatenate((theta,[dlp_wrbf.accuracies[-1],dlp_wrbf.labeled_losses[-1],dlp_wrbf.unlabeled_losses[-1],dlp_wrbf.sol_accuracies[-1],dlp_wrbf.sol_unlabeled_losses[-1]])))
+outfile.close()
 
 end = time.time()
 print(end - start)
+
 print("----------------------------------")
 dlp_wrbf.sess.close()
 sess.close()
@@ -78,8 +84,8 @@ sess = tf.Session()
 dlp_wrbf = DeepLP_WeightedRBF(10, num_nodes, features, graph, np.var(features), theta, 0.01, sess, 0.1)
 dlp_wrbf.train(data,test_data,100)
 
-w1.writerow([dlp_wrbf.accuracies[-1],dlp_wrbf.labeled_losses[-1],dlp_wrbf.unlabeled_losses[-1],dlp_wrbf.sol_accuracies[-1],dlp_wrbf.sol_unlabeled_losses[-1]])
-
+writer1.writerow(np.concatenate((theta,[dlp_wrbf.accuracies[-1],dlp_wrbf.labeled_losses[-1],dlp_wrbf.unlabeled_losses[-1],dlp_wrbf.sol_accuracies[-1],dlp_wrbf.sol_unlabeled_losses[-1]])))
+outfile1.close()
 
 end = time.time()
 print(end - start)

@@ -6,13 +6,13 @@ import numpy as np
 class DeepLP_WeightedRBF(DeepLP_RBF):
 
     def __init__(self, iter_, num_nodes, features, graph, sigma_, theta_, lr, session, regularize=0):
-        self.features          = tf.constant(features, dtype=tf.float32)
-        self.G            = tf.constant(graph, dtype=tf.float32)
+        phi          = tf.constant(features, dtype=tf.float32)
+        G            = tf.constant(graph, dtype=tf.float32)
         self.sigma   = tf.constant(sigma_, dtype=tf.float32)
         num_features = features.shape[1]
         self.theta   = tf.Variable(tf.convert_to_tensor(theta_, dtype=tf.float32))
-        phi          = self.features * self.theta
-        self.W       = self.init_weights(phi, self.G, self.sigma)
+        phi          = phi * self.theta
+        self.W       = self.init_weights(phi, G, sigma_)
         self.regularize = regularize
 
         self.build_graph(iter_,lr,num_nodes,session)
@@ -23,12 +23,6 @@ class DeepLP_WeightedRBF(DeepLP_RBF):
         if epoch % 10 == 0:
             print("theta:",thetab)
 
-    def train(self,data,full_data,epochs,theta_,regularize=0):
+    def train(self,data,full_data,epochs):
         self.thetas = []
-        self.theta   = tf.Variable(tf.convert_to_tensor(theta_, dtype=tf.float32))
-        phi          = self.features * self.theta
-        self.W       = self.init_weights(phi, self.G, self.sigma)
-        if regularize:
-            self.regularize = regularize
-
         super().train(data,full_data,epochs)
