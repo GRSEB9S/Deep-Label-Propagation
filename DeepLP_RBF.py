@@ -6,17 +6,17 @@ import numpy as np
 
 class DeepLP_RBF(DeepLP):
 
-    def __init__(self, iter_, num_nodes, features, graph, sigma, lr, session, regularize=0):
+    def __init__(self, iter_, num_nodes, features, graph, sigma, lr, regularize=0):
         self.phi         = tf.constant(features, dtype=tf.float32)
         self.G           = tf.constant(graph, dtype=tf.float32)
         self.sigma  = tf.Variable(sigma, dtype=tf.float32)
         self.W           = self.init_weights(self.phi, self.G, self.sigma)
         self.regularize  = regularize
 
-        self.build_graph(iter_,lr,num_nodes,session)
+        self.build_graph(iter_,lr,num_nodes)
 
     def save_params(self,epoch,data,n):
-        sigmab = self.eval(self.sigma,data)
+        sigmab = self.get_val(self.sigma)
         self.sigmas.append(sigmab)
         if epoch % 100 == 0:
             print("sigma:",sigmab)

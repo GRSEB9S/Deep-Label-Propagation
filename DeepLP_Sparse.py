@@ -3,14 +3,13 @@ import tensorflow as tf
 import numpy as np
 
 class DeepLP_Sparse:
-    def __init__(self, iter_, num_nodes, weights, lr, session, regularize=0):
+    def __init__(self, iter_, num_nodes, weights, lr, regularize=0):
         self.W      = self.init_weights(weights)
         self.regularize = regularize
-        self.build_graph(iter_,lr,num_nodes,session)
+        self.build_graph(iter_,lr,num_nodes)
 
 
-    def build_graph(self,iter_,lr,num_nodes,session):
-        self.sess   = session
+    def build_graph(self,iter_,lr,num_nodes):
         self.lr     = lr
         self.iter_  = iter_ # Layer size
 

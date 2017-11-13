@@ -1,16 +1,17 @@
 from __future__ import print_function
 import tensorflow as tf
 import numpy as np
+import time
+
 
 class DeepLP:
-    def __init__(self, iter_, num_nodes, weights, lr, session, regularize=0):
+    def __init__(self, iter_, num_nodes, weights, lr, regularize=0):
         self.W      = self.init_weights(weights)
         self.regularize = regularize
-        self.build_graph(iter_,lr,num_nodes,session)
+        self.build_graph(iter_,lr,num_nodes)
 
 
-    def build_graph(self,iter_,lr,num_nodes,session):
-        self.sess   = session
+    def build_graph(self,iter_,lr,num_nodes):
         self.lr     = lr
         self.iter_  = iter_ # Layer size
 
@@ -30,7 +31,7 @@ class DeepLP:
         weights = tf.convert_to_tensor(weights_np, np.float32)
         return tf.Variable(weights)
 
-    def get_value(self,val):
+    def get_val(self,val):
         return self.sess.run(val)
 
 
@@ -72,6 +73,11 @@ class DeepLP:
             self.loss = self.calc_loss(self.masked,self.y,self.yhat)
         self.updates = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
 
+        self.unlabeled_loss     = self.calc_loss((1-self.true_labeled),self.y,self.yhat)
+        self.accuracy           = self.calc_accuracy(self.y,self.yhat)
+        self.sol_unlabeled_loss = self.calc_loss((1-self.true_labeled),self.y,self.yhat)
+        self.sol_accuracy       = self.calc_accuracy(self.y,self.yhat,True)
+
     def calc_loss(self,mask,y,yhat):
         loss_mat = tf.multiply(mask, (y-yhat) ** 2 )
         return tf.reduce_sum(loss_mat) / tf.count_nonzero(loss_mat,dtype=tf.float32)
@@ -83,15 +89,23 @@ class DeepLP:
         else:
             return tf.reduce_mean(tf.cast(tf.equal(tf.round(yhat),y),tf.float32))
 
-    def labelprop(self,data):
+    def open_sess(self):
+        self.sess   = tf.Session()
         init = tf.global_variables_initializer()
         self.sess.run(init)
 
+    def close_sess(self):
+        self.sess.close()
+
+    def labelprop(self,data):
+        self.open_sess()
         pred = self.eval(self.yhat,data)
+        # self.close_sess()
+
         return pred
 
-    def eval(self,tensor,data):
-        return self.sess.run(tensor, feed_dict={self.X:data['X'],
+    def eval(self,vals,data):
+        return self.sess.run(vals, feed_dict={self.X:data['X'],
                                     self.y:data['y'],
                                     self.unlabeled:data['unlabeled'],
                                     self.labeled:data['labeled'],
@@ -102,12 +116,9 @@ class DeepLP:
         pass
 
     def save(self,epoch,data,full_data,n):
-        labeled_loss = self.eval(self.loss,data)
-        unlabeled_loss = self.eval(self.calc_loss((1-self.true_labeled),self.y,self.yhat),data)
-        accuracy = self.eval(self.calc_accuracy(self.y,self.yhat),data)
-        sol_unlabeled_loss = self.eval(self.calc_loss((1-self.true_labeled),self.y,self.yhat),full_data)
-        sol_accuracy = self.eval(self.calc_accuracy(self.y,self.yhat,True),full_data)
-        acc_mat = tf.multiply((1-self.true_labeled),tf.cast(tf.equal(tf.round(self.yhat),self.y),tf.float32))
+
+        labeled_loss,unlabeled_loss,accuracy = self.eval([self.loss,self.unlabeled_loss,self.accuracy],data)
+        sol_accuracy,sol_unlabeled_loss      = self.eval([self.sol_accuracy,self.sol_unlabeled_loss],full_data)
         self.labeled_losses.append(labeled_loss)
         self.unlabeled_losses.append(unlabeled_loss)
         self.accuracies.append(accuracy)
@@ -118,8 +129,8 @@ class DeepLP:
         self.save_params(epoch,data,n)
 
     def train(self,data,full_data,epochs):
-        init = tf.global_variables_initializer()
-        self.sess.run(init)
+        self.open_sess()
+
         n = len(data['X'])
         self.labeled_losses = []
         self.unlabeled_losses = []
@@ -127,9 +138,10 @@ class DeepLP:
         self.sol_accuracies = []
         self.sol_unlabeled_losses = []
         self.save(-1,data,full_data,n)
-
         for epoch in range(epochs):
             # Train with each example
             for i in range(n):
+                start = time.time()
                 self.eval(self.updates,data)
             self.save(epoch,data,full_data,n)
+        # self.close_sess()
