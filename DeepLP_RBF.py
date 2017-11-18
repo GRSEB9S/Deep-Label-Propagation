@@ -2,7 +2,7 @@ from __future__ import print_function
 from DeepLP import DeepLP
 import tensorflow as tf
 import numpy as np
-
+import matplotlib.pyplot as plt
 
 class DeepLP_RBF(DeepLP):
 
@@ -36,3 +36,8 @@ class DeepLP_RBF(DeepLP):
         self.W = self.init_weights(self.phi,self.G,sigma)
         pred = self.eval(self.yhat,data)
         return pred
+
+    def plot_params(self):
+        plt.plot(self.sigmas)
+        plt.title("parameter")
+        plt.show()

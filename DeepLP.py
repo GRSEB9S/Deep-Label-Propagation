@@ -2,6 +2,7 @@ from __future__ import print_function
 import tensorflow as tf
 import numpy as np
 import time
+import matplotlib.pyplot as plt
 
 
 class DeepLP:
@@ -34,16 +35,9 @@ class DeepLP:
     def get_val(self,val):
         return self.sess.run(val)
 
-
-    i = tf.constant(0)
-    while_condition = lambda i: tf.less(i, input_placeholder[1, 1])
-
-
-    # do the loop:
-
     def forwardprop(self):
-        T = self.W / tf.reduce_sum(self.W, axis = 0)
-        Tnorm = tf.transpose(T / tf.reduce_sum(T, axis = 1))
+        T = self.W / tf.reduce_sum(self.W, axis = 0, keep_dims=True)
+        Tnorm = T / tf.reduce_sum(T, axis = 1, keep_dims=True)
 
         trueX = self.X
         X = self.X
@@ -54,15 +48,9 @@ class DeepLP:
             return [i+1,h,trueX,Tnorm]
 
         def condition(i,X,trueX,Tnorm):
-            return self.iter_ >= i
+            return self.iter_ > i
 
         _,h,_,_ = tf.while_loop(condition, layer, loop_vars=[0,X,trueX,Tnorm])
-
-
-        # for i in range(self.iter_):
-        #     h = X @ Tnorm
-        #     h = tf.multiply(h, self.unlabeled) + tf.multiply(trueX, self.labeled)
-        #     X = h
         return h
 
     def backwardprop(self):
@@ -145,3 +133,27 @@ class DeepLP:
                 self.eval(self.updates,data)
             self.save(epoch,data,full_data,n)
         # self.close_sess()
+
+    def plot_loss(self,):
+        plt.plot(self.labeled_losses,label="labeled loss")
+        plt.plot(self.unlabeled_losses,label="unlabeled loss")
+        plt.plot(self.sol_unlabeled_losses,label='validation unlabeled loss')
+        plt.title("loss")
+        plt.legend()
+        plt.show()
+
+    def plot_accuracy(self):
+        plt.plot(self.accuracies,label="DeepLP, train")
+        plt.plot([self.sol_accuracies[0]] * len(self.accuracies),label="LP")
+        plt.plot(self.sol_accuracies,label="DeepLP, validation")
+        plt.title("accuracy")
+        plt.legend()
+        plt.show()
+
+    def plot_params(self):
+        pass
+
+    def plot(self):
+        self.plot_loss()
+        self.plot_accuracy()
+        self.plot_params()

@@ -2,6 +2,7 @@ from __future__ import print_function
 from DeepLP_RBF import DeepLP_RBF
 import tensorflow as tf
 import numpy as np
+import matplotlib.pyplot as plt
 
 class DeepLP_WeightedRBF(DeepLP_RBF):
 
@@ -26,3 +27,8 @@ class DeepLP_WeightedRBF(DeepLP_RBF):
     def train(self,data,full_data,epochs):
         self.thetas = []
         super().train(data,full_data,epochs)
+
+    def plot_params(self):
+        plt.plot(self.thetas)
+        plt.title("parameters")
+        plt.show()

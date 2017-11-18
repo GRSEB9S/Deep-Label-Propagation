@@ -4,23 +4,24 @@ from numpy.linalg import inv
 
 
 class LP:
+    def __init__(self,num_nodes):
+        self.num_nodes = num_nodes
 
-    def tnorm(self,X):
-        W = rbf_kernel(X)
-        T = W / np.sum(W, axis=0)
-        Tnorm = T / np.sum(T, axis=1)
+    def tnorm(self,W):
+        T = W / np.sum(W, axis=0, keepdims=True)
+        Tnorm = T / np.sum(T, axis=1, keepdims=True)
         return Tnorm
 
-    def closed(self,X,Ly):
+    def closed(self,W,Ly):
         n = len(Ly)
-        Tnorm = self.tnorm(X)
+        Tnorm = self.tnorm(W)
         Tuu_norm = Tnorm[n:,n:]
         Tul_norm = Tnorm[n:,:n]
         Uy_lp = inv((np.identity(len(Tuu_norm))-Tuu_norm)) @ Tul_norm @ Ly
         return Uy_lp
 
-    def iter_(self,X,Ly,Uy,iter_):
-        Tnorm = self.tnorm(X).T
+    def iter_(self,W,Ly,Uy,iter_):
+        Tnorm = self.tnorm(W)
         Y = np.hstack((Ly,Uy))
 
         for i in range(iter_):
