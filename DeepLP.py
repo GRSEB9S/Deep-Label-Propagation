@@ -3,16 +3,19 @@ import tensorflow as tf
 import numpy as np
 import time
 import matplotlib.pyplot as plt
+import time
 
 
 class DeepLP:
-    def __init__(self, iter_, num_nodes, weights, lr, regularize=0):
+    def __init__(self, iter_, num_nodes, weights, lr, regularize=0, graph_sparse=False, print_freq=10):
         self.W      = self.init_weights(weights)
         self.regularize = regularize
+        self.graph_sparse = graph_sparse
         self.build_graph(iter_,lr,num_nodes)
 
-
     def build_graph(self,iter_,lr,num_nodes):
+        self.start_time = time.time()
+
         self.lr     = lr
         self.iter_  = iter_ # Layer size
 
@@ -43,7 +46,7 @@ class DeepLP:
         X = self.X
 
         def layer(i,X,trueX,Tnorm):
-            h = X @ Tnorm
+            h = tf.matmul(X,Tnorm,a_is_sparse=False, b_is_sparse=False)
             h = tf.multiply(h, self.unlabeled) + tf.multiply(trueX, self.labeled)
             return [i+1,h,trueX,Tnorm]
 
@@ -114,6 +117,8 @@ class DeepLP:
         self.sol_unlabeled_losses.append(sol_unlabeled_loss)
         if epoch % 10 == 0 or epoch == -1:
             print("epoch:",epoch,"labeled loss:",labeled_loss,"unlabeled loss:",unlabeled_loss,"accuracy:",accuracy,"sol unlabeled loss:",sol_unlabeled_loss,"sol accuracy:",sol_accuracy)
+            print("--- %s seconds ---" % (time.time() - self.start_time))
+            self.start_time = time.time()
         self.save_params(epoch,data,n)
 
     def train(self,data,full_data,epochs):
@@ -128,13 +133,13 @@ class DeepLP:
         self.save(-1,data,full_data,n)
         for epoch in range(epochs):
             # Train with each example
-            for i in range(n):
-                start = time.time()
-                self.eval(self.updates,data)
+            self.eval(self.updates,data)
+            # print("--- %s seconds ---" % (time.time() - self.start_time))
+            # self.start_time = time.time()
             self.save(epoch,data,full_data,n)
         # self.close_sess()
 
-    def plot_loss(self,):
+    def plot_loss(self):
         plt.plot(self.labeled_losses,label="labeled loss")
         plt.plot(self.unlabeled_losses,label="unlabeled loss")
         plt.plot(self.sol_unlabeled_losses,label='validation unlabeled loss')

@@ -123,4 +123,7 @@ def rmse(y,yhat):
 def objective(Ly,Uy_lp,W):
     n = len(Ly) + len(Uy_lp)
     labels = np.hstack((Ly,Uy_lp)).reshape(n,1)
-    return (labels.T @ W @ labels)[0][0]
+    row, col = np.diag_indices_from(W)
+    D = np.identity(W.shape[0])
+    D[row,col] = np.sum(W,axis=0)
+    return (labels.T @ (D-W) @ labels)[0][0]

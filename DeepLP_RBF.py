@@ -6,19 +6,19 @@ import matplotlib.pyplot as plt
 
 class DeepLP_RBF(DeepLP):
 
-    def __init__(self, iter_, num_nodes, features, graph, sigma, lr, regularize=0):
+    def __init__(self, iter_, num_nodes, features, graph, sigma, lr, regularize=0, graph_sparse=False):
         self.phi         = tf.constant(features, dtype=tf.float32)
         self.G           = tf.constant(graph, dtype=tf.float32)
         self.sigma  = tf.Variable(sigma, dtype=tf.float32)
         self.W           = self.init_weights(self.phi, self.G, self.sigma)
         self.regularize  = regularize
-
+        self.graph_sparse = graph_sparse
         self.build_graph(iter_,lr,num_nodes)
 
     def save_params(self,epoch,data,n):
         sigmab = self.get_val(self.sigma)
         self.sigmas.append(sigmab)
-        if epoch % 100 == 0:
+        if epoch % 10 == 0:
             print("sigma:",sigmab)
 
     def init_weights(self, phi, G, sigma):
