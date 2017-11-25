@@ -1,8 +1,10 @@
 from __future__ import print_function
-from DeepLP_RBF import DeepLP_RBF
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
+import sys
+sys.path.append('../')
+from model.DeepLP_RBF import DeepLP_RBF
 
 class DeepLP_WeightedRBF(DeepLP_RBF):
 

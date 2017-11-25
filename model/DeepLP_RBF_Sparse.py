@@ -3,7 +3,9 @@ import tensorflow as tf
 import numpy as np
 import time
 import matplotlib.pyplot as plt
-from DeepLP_RBF import DeepLP_RBF
+import sys
+sys.path.append('../')
+from model.DeepLP_RBF import DeepLP_RBF
 
 class DeepLP_RBF_Sparse(DeepLP_RBF):
 
