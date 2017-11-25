@@ -1,6 +1,9 @@
 import numpy as np
-from utils import rbf_kernel
 from numpy.linalg import inv
+
+import sys
+sys.path.append('../')
+from model.utils import rbf_kernel
 
 
 class LP:
@@ -21,7 +24,7 @@ class LP:
         Tnorm = self.tnorm(W)
         Tuu_norm = Tnorm[n:,n:]
         Tul_norm = Tnorm[n:,:n]
-        a = (np.identity(len(Tuu_norm))-Tuu_norm)
+        a = (1.00000000001 * np.identity(len(Tuu_norm))-Tuu_norm)
         b = Tul_norm @ Ly
         Uy_lp = np.linalg.solve(a, b)
         return Uy_lp

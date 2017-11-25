@@ -1,8 +1,10 @@
 from __future__ import print_function
-from DeepLP import DeepLP
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
+import sys
+sys.path.append('../')
+from model.DeepLP import DeepLP
 
 class DeepLP_RBF(DeepLP):
 

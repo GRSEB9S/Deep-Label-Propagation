@@ -32,13 +32,14 @@ def random_unlabel(data,labels,label_prob=0.1,hard=False):
     return LX, Ly, UX, Uy, Uy_sol
 
 
-def rbf_kernel(X,s=None,G=None,percentile=3):
+def rbf_kernel(X,s=None,G=[],percentile=3):
     # use rbf kernel to estimate weights
     pairwise_dists = squareform(pdist(X, 'euclidean'))
     if not s:
         s = 1
     K = sp.exp(-pairwise_dists ** 2 / s ** 2)
-    if G == None:
+
+    if len(G) == 0:
         threshold = np.percentile(K,percentile)
         np.fill_diagonal(K, 0)
 
