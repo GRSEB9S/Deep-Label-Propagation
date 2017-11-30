@@ -10,6 +10,7 @@ def random_unlabel(data,labels,label_prob=0.1,hard=False):
     random_unlabeled_points = rng.rand(len(labels)) < 1-label_prob
     masked_labels = np.copy(labels).astype(float)
 
+
     # keep labels for points that will be unlabeled
     Uy_sol = np.copy(labels[random_unlabeled_points])
 
@@ -29,7 +30,7 @@ def random_unlabel(data,labels,label_prob=0.1,hard=False):
     UX = data[unlabeled_indices]
     LX = np.delete(data,unlabeled_indices,axis=0)
 
-    return LX, Ly, UX, Uy, Uy_sol
+    return LX, Ly, UX, Uy, Uy_sol, random_unlabeled_points
 
 
 def rbf_kernel(X,s=None,G=[],percentile=3):
@@ -128,3 +129,15 @@ def objective(Ly,Uy_lp,W):
     D = np.identity(W.shape[0])
     D[row,col] = np.sum(W,axis=0)
     return (labels.T @ (D-W) @ labels)[0][0]
+
+def prob_to_one_hot(prob):
+    return (prob == prob.max(axis=1)[:,None]).astype(int)
+
+def array_to_one_hot(vec,num_samples, num_classes):
+    res = np.zeros((num_samples, num_classes))
+    res[np.arange(num_samples), vec.astype(int)] = 1
+    return res
+
+def accuracy_mult(sol,pred):
+    match = (sol == pred).all(axis=1)
+    return np.sum(match) / len(match)

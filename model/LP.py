@@ -24,7 +24,7 @@ class LP:
         Tnorm = self.tnorm(W)
         Tuu_norm = Tnorm[n:,n:]
         Tul_norm = Tnorm[n:,:n]
-        a = (1.00000000001 * np.identity(len(Tuu_norm))-Tuu_norm)
+        a = (np.identity(len(Tuu_norm))-Tuu_norm)
         b = Tul_norm @ Ly
         Uy_lp = np.linalg.solve(a, b)
         return Uy_lp
@@ -38,3 +38,16 @@ class LP:
             Y[:self.num_labeled] = Ly
 
         return(Y[self.num_labeled:])
+
+    def iter_multiclass(self,W,Ly,num_classes,num_unlabeled,iter_=-1):
+        preds = []
+        for class_ in range(num_classes):
+            Ly_class = Ly == class_
+            Uy_class = np.array([1/num_classes] * num_unlabeled)
+            if iter_ == -1:
+                pred = self.closed(W,Ly_class)
+            else:
+                pred = self.iter_(W,Ly_class,Uy_class,iter_)
+            preds.append(pred)
+        res = np.vstack(preds).T
+        return res

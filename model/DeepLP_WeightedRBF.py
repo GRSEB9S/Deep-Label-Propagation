@@ -8,12 +8,13 @@ from model.DeepLP_RBF import DeepLP_RBF
 
 class DeepLP_WeightedRBF(DeepLP_RBF):
 
-    def __init__(self, iter_, num_nodes, features, graph, sigma_, theta_, lr, regularize=0):
+    def __init__(self, iter_, num_nodes, features, graph, sigma_, theta_, lr, regularize=0, multi_class=False):
         phi          = tf.constant(features, dtype=tf.float32)
         G            = tf.constant(graph, dtype=tf.float32)
         self.sigma   = tf.constant(sigma_, dtype=tf.float32)
         num_features = features.shape[1]
         self.theta   = tf.Variable(tf.convert_to_tensor(theta_, dtype=tf.float32))
+        self.multi_class=multi_class
         phi          = phi * self.theta
         self.W       = self.init_weights(phi, G, sigma_)
         self.regularize = regularize

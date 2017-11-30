@@ -9,12 +9,13 @@ from model.DeepLP_RBF import DeepLP_RBF
 
 class DeepLP_RBF_Sparse(DeepLP_RBF):
 
-    def __init__(self, iter_, num_nodes, features, graph, sigma, lr, regularize=0):
+    def __init__(self, iter_, num_nodes, features, graph, sigma, lr,  print_freq=10,regularize=0,multi_class=False):
         self.phi         = tf.constant(features, dtype=tf.float32)
         self.G           = self.dense_to_sparse(tf.constant(graph, dtype=tf.float32))
         self.sigma  = tf.Variable(sigma, dtype=tf.float32)
         self.W           = self.init_weights(self.phi, self.G, self.sigma)
         self.regularize  = regularize
+        self.multi_class = multi_class
 
         self.build_graph(iter_,lr,num_nodes)
 

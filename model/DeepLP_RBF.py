@@ -8,11 +8,12 @@ from model.DeepLP import DeepLP
 
 class DeepLP_RBF(DeepLP):
 
-    def __init__(self, iter_, num_nodes, features, graph, sigma, lr, regularize=0, graph_sparse=False):
+    def __init__(self, iter_, num_nodes, features, graph, sigma, lr, regularize=0, graph_sparse=False, multi_class=False):
         self.phi         = tf.constant(features, dtype=tf.float32)
         self.G           = tf.constant(graph, dtype=tf.float32)
         self.sigma  = tf.Variable(sigma, dtype=tf.float32)
         self.W           = self.init_weights(self.phi, self.G, self.sigma)
+        self.multi_class = multi_class
         self.regularize  = regularize
         self.graph_sparse = graph_sparse
         self.build_graph(iter_,lr,num_nodes)
@@ -20,7 +21,7 @@ class DeepLP_RBF(DeepLP):
     def save_params(self,epoch,data,n):
         sigmab = self.get_val(self.sigma)
         self.sigmas.append(sigmab)
-        if epoch % 10 == 0:
+        if epoch % 1 == 0:
             print("sigma:",sigmab)
 
     def init_weights(self, phi, G, sigma):

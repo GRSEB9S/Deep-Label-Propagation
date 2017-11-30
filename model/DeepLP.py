@@ -7,9 +7,10 @@ import time
 
 
 class DeepLP:
-    def __init__(self, iter_, num_nodes, weights, lr, regularize=0, graph_sparse=False, print_freq=10):
+    def __init__(self, iter_, num_nodes, weights, lr, regularize=0, graph_sparse=False, print_freq=10, multi_class=False):
         self.W      = self.init_weights(weights)
         self.regularize = regularize
+        self.multi_class = multi_class
         self.graph_sparse = graph_sparse
         self.build_graph(iter_,lr,num_nodes)
 
@@ -73,12 +74,19 @@ class DeepLP:
         loss_mat = tf.multiply(mask, (y-yhat) ** 2 )
         return tf.reduce_sum(loss_mat) / tf.count_nonzero(loss_mat,dtype=tf.float32)
 
-    def calc_accuracy(self,y,yhat,full=False):
-        if full:
-            acc_mat = tf.multiply((1-self.true_labeled),tf.cast(tf.equal(tf.round(yhat),y),tf.float32))
-            return tf.reduce_sum(acc_mat) / tf.count_nonzero((1-self.true_labeled),dtype=tf.float32)
+    def calc_accuracy(self,y,prob,full=False):
+        if self.multi_class:
+
+            print(y,prob)
+            yhat = tf.to_float(tf.equal(prob,tf.reduce_max(prob,axis=1)))
+            return tf.reduce_all(tf.equal(yhat,y),axis=1)
         else:
-            return tf.reduce_mean(tf.cast(tf.equal(tf.round(yhat),y),tf.float32))
+            if full:
+                acc_mat = tf.multiply((1-self.true_labeled),tf.cast(tf.equal(tf.round(yhat),y),tf.float32))
+                return tf.reduce_sum(acc_mat) / tf.count_nonzero((1-self.true_labeled),dtype=tf.float32)
+            else:
+                return tf.reduce_mean(tf.cast(tf.equal(tf.round(yhat),y),tf.float32))
+
 
     def open_sess(self):
         self.sess   = tf.Session()
@@ -115,7 +123,7 @@ class DeepLP:
         self.accuracies.append(accuracy)
         self.sol_accuracies.append(sol_accuracy)
         self.sol_unlabeled_losses.append(sol_unlabeled_loss)
-        if epoch % 10 == 0 or epoch == -1:
+        if epoch % 1 == 0 or epoch == -1:
             print("epoch:",epoch,"labeled loss:",labeled_loss,"unlabeled loss:",unlabeled_loss,"accuracy:",accuracy,"sol unlabeled loss:",sol_unlabeled_loss,"sol accuracy:",sol_accuracy)
             print("--- %s seconds ---" % (time.time() - self.start_time))
             self.start_time = time.time()
