@@ -8,7 +8,7 @@ class Data:
     '''
     def load_iris():
         # load iris data
-        iris   = sklearn.Dadatasets.load_iris()
+        iris   = sklearn.datasets.load_iris()
         data   = iris["data"]
         labels = iris["target"]
 

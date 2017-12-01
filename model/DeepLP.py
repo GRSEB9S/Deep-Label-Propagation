@@ -28,7 +28,7 @@ class DeepLP:
                           regularize,
                           graph_sparse,
                           print_freq,
-                          multi_class))
+                          multi_class)
 
     def _build_graph(self,num_iter,
                          num_nodes,
@@ -57,11 +57,16 @@ class DeepLP:
         self.true_labeled_indices   = tf.placeholder("float", shape=shape)
         self.true_unlabeled_indices = tf.placeholder("float", shape=shape)
 
-        self.yhat = self._forwardprop(self.X,
-                                      self.weights,
-                                      self.labeled_indices,
-                                      self.num_iter)
-        self._backwardprop()
+        self.yhat                   = self._forwardprop(self.X,
+                                                        self.weights,
+                                                        self.labeled_indices,
+                                                        self.num_iter)
+        self.update, self.metrics   = self._backwardprop(self.y,
+                                                         self.yhat,
+                                                         self.labeled_indices,
+                                                         self.unlabeled_indices,
+                                                         self.regularize,
+                                                         self.lr)
 
     def _get_val(self,val):
         return self.sess.run(val)
@@ -114,54 +119,43 @@ class DeepLP:
         Calculate loss and accuracy for both train and validation dataset.
         '''
         # backward propagation
-        loss = self._calc_loss(y,yhat,unlabeled_indices)
-                              + regularize * self._regularize_loss()
-        updates = tf.train.AdamOptimizer(lr).minimize(loss)
-        
-        # evaluate performance
-        accuracy      = self._calc_accuracy(y,yhat)
-        loss          = self._calc_loss(y,yhat,)
-        true_accuracy = self._calc_accuracy(y,yhat,validation=True)
+        loss          = (self._calc_loss(y,yhat,unlabeled_indices)
+                            + regularize * self._regularize_loss())
+        updates       = tf.train.AdamOptimizer(lr).minimize(loss)
 
-        return updates
+        # evaluate performance
+        accuracy      = self._calc_accuracy(y,yhat,unlabeled_indices)
+        true_loss     = self._calc_loss(y,yhat,labeled_indices)
+        true_accuracy = self._calc_accuracy(y,yhat,labeled_indices)
+
+        metrics = [loss, accuracy, true_loss, true_accuracy]
+
+        return updates, metrics
 
     def _calc_loss(self,y,yhat,indices):
-        if validation:
-            loss_mat = (y[self.]-yhat)
-        else:
+        loss_mat = (y[indices]-yhat[indices]) ** 2
+        return tf.reduce_mean(loss_mat)
 
-        return tf.reduce_sum(loss_mat) / tf.count_nonzero(loss_mat,dtype=tf.float32)
-
-    def calc_accuracy(self,y,prob,full=False):
+    def _calc_accuracy(self,y,prob,indices):
         if self.multi_class:
-
             print(y,prob)
             yhat = tf.to_float(tf.equal(prob,tf.reduce_max(prob,axis=1)))
             return tf.reduce_all(tf.equal(yhat,y),axis=1)
         else:
-            if full:
-                acc_mat = tf.multiply((1-self.true_labeled),tf.cast(tf.equal(tf.round(yhat),y),tf.float32))
-                return tf.reduce_sum(acc_mat) / tf.count_nonzero((1-self.true_labeled),dtype=tf.float32)
-            else:
-                return tf.reduce_mean(tf.cast(tf.equal(tf.round(yhat),y),tf.float32))
+            acc_mat = tf.cast(tf.equal(tf.round(yhat[indices]),y[indices]),tf.float32)
+            return tf.reduce_sum(acc_mat) / tf.count_nonzero((1-self.true_labeled),dtype=tf.float32)
 
-
-    def open_sess(self):
-        self.sess   = tf.Session()
-        init = tf.global_variables_initializer()
+    def _open_sess(self):
+        self.sess = tf.Session()
+        init      = tf.global_variables_initializer()
         self.sess.run(init)
 
-    def close_sess(self):
-        self.sess.close()
-
     def labelprop(self,data):
-        self.open_sess()
-        pred = self.eval(self.yhat,data)
-        # self.close_sess()
-
+        self._open_sess()
+        pred = self._eval(self.yhat,data)
         return pred
 
-    def eval(self,vals,data):
+    def _eval(self,vals,data):
         return self.sess.run(vals, feed_dict={self.X:data['X'],
                                     self.y:data['y'],
                                     self.unlabeled:data['unlabeled'],
@@ -173,7 +167,6 @@ class DeepLP:
         pass
 
     def save(self,epoch,data,full_data,n):
-
         labeled_loss,unlabeled_loss,accuracy = self.eval([self.loss,self.unlabeled_loss,self.accuracy],data)
         sol_accuracy,sol_unlabeled_loss      = self.eval([self.sol_accuracy,self.sol_unlabeled_loss],full_data)
         self.labeled_losses.append(labeled_loss)
