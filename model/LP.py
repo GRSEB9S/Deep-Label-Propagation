@@ -5,7 +5,6 @@ import sys
 sys.path.append('../')
 from model.utils import rbf_kernel
 
-
 class LP:
     '''
     Label propagation for predicting labels for unlabeled nodes.
