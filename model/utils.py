@@ -3,34 +3,47 @@ import numpy as np
 import scipy as sp
 from sklearn import datasets
 
-def random_unlabel(data,labels,label_prob=0.1,hard=False):
+def random_unlabel(labels,label_prob=0.1,hard=False):
 
-    # generate random numbers for unlabeling
-    rng = np.random.RandomState(42)
-    random_unlabeled_points = rng.rand(len(labels)) < 1-label_prob
-    masked_labels = np.copy(labels).astype(float)
+    is_labeled = np.zeros(num_nodes)
+    is_labeled.fill(True)
+    n = is_labeled.size
 
 
-    # keep labels for points that will be unlabeled
-    Uy_sol = np.copy(labels[random_unlabeled_points])
+    random_indices = np.random.choice(n, int(n * label_prob), replace=False)
+    is_labeled.ravel()[random_indices] = False
+    labels[random_indices] = 0.5
 
-    # unlabel points (opposite of the true label, to make the problem hard)
-    if hard:
-        masked_labels[random_unlabeled_points] = 1-masked_labels[random_unlabeled_points]
-    else:
-        masked_labels[random_unlabeled_points] = 0.5
+    return is_labeled, labels
 
-    unlabeled_indices = np.where(random_unlabeled_points)
-
-    # separate labeled/unlabeled Y
-    Uy = masked_labels[random_unlabeled_points]
-    Ly = np.delete(masked_labels,unlabeled_indices)
-
-    # separate labeled/unlabeled X
-    UX = data[unlabeled_indices]
-    LX = np.delete(data,unlabeled_indices,axis=0)
-
-    return LX, Ly, UX, Uy, Uy_sol, random_unlabeled_points
+# def random_unlabel(data,labels,label_prob=0.1,hard=False):
+#
+#     # generate random numbers for unlabeling
+#     rng = np.random.RandomState(42)
+#     random_unlabeled_points = rng.rand(len(labels)) < 1-label_prob
+#     masked_labels = np.copy(labels).astype(float)
+#
+#
+#     # keep labels for points that will be unlabeled
+#     Uy_sol = np.copy(labels[random_unlabeled_points])
+#
+#     # unlabel points (opposite of the true label, to make the problem hard)
+#     if hard:
+#         masked_labels[random_unlabeled_points] = 1-masked_labels[random_unlabeled_points]
+#     else:
+#         masked_labels[random_unlabeled_points] = 0.5
+#
+#     unlabeled_indices = np.where(random_unlabeled_points)
+#
+#     # separate labeled/unlabeled Y
+#     Uy = masked_labels[random_unlabeled_points]
+#     Ly = np.delete(masked_labels,unlabeled_indices)
+#
+#     # separate labeled/unlabeled X
+#     UX = data[unlabeled_indices]
+#     LX = np.delete(data,unlabeled_indices,axis=0)
+#
+#     return LX, Ly, UX, Uy, Uy_sol, random_unlabeled_points
 
 
 def rbf_kernel(X,s=None,G=[],percentile=3):
