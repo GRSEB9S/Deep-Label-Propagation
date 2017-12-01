@@ -4,6 +4,9 @@ import scipy as sp
 from sklearn import datasets
 
 def random_unlabel(true_labels,unlabel_prob=0.1):
+    '''
+    randomly unlabel nodes based on unlabel probability
+    '''
     labels = true_labels.copy()
     n = len(labels)
     is_labeled = np.zeros(n)
@@ -17,6 +20,11 @@ def random_unlabel(true_labels,unlabel_prob=0.1):
     return labels, is_labeled, labeled_indices, unlabeled_indices
 
 def rbf_kernel(X,s=None,G=[],percentile=3):
+    '''
+    Use RBF kernel to calculate the weights of edges.
+    If given a graph G, drop edges not in G.
+    If not, drop edges that are not in the top percentile.
+    '''
     # use rbf kernel to estimate weights
     pairwise_dists = squareform(pdist(X, 'euclidean'))
     if not s:
@@ -42,6 +50,11 @@ def rbf_kernel(X,s=None,G=[],percentile=3):
 def parallel_coordinates(frame, class_column, cols=None, ax=None, color=None,
                      use_columns=False, xticks=None, colormap=None,
                      **kwds):
+    '''
+    Plot pararrel coordinates.
+    This function is inherited from matplotlib but is
+    modified to accept continuous values.
+    '''
     import matplotlib.pyplot as plt
     import matplotlib as mpl
 
@@ -97,7 +110,6 @@ def parallel_coordinates(frame, class_column, cols=None, ax=None, color=None,
     cb = mpl.colorbar.ColorbarBase(cax, cmap=Colorm, spacing='proportional', ticks=bounds, boundaries=bounds, format='%.2f')
 
     return fig
-
 
 def accuracy(y,yhat):
     return np.mean((yhat == y))

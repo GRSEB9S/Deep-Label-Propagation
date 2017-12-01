@@ -15,6 +15,9 @@ class LP:
         return
 
     def tnorm(self,weights):
+        '''
+        Column normalize -> row normalize weights.
+        '''
         # column normalize weights
         T = weights / np.sum(weights, axis=0, keepdims=True)
         # row normalize T
@@ -25,6 +28,9 @@ class LP:
                     weights,
                     labeled_indices,
                     unlabeled_indices):
+        '''
+        Closed solution of label propagation.
+        '''
         # normalize T
         Tnorm = self.tnorm(weights)
         # sort Tnorm by unlabeled/labeld
@@ -41,6 +47,9 @@ class LP:
                    labeled_indices,
                    unlabeled_indices,
                    num_iter):
+        '''
+        Iterated solution of label propagation.
+        '''
         # normalize T
         Tnorm = self.tnorm(weights)
         Y = labels.copy()
