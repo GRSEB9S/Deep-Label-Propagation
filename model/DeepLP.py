@@ -5,73 +5,131 @@ import time
 import matplotlib.pyplot as plt
 import time
 
-
 class DeepLP:
-    def __init__(self, iter_, num_nodes, weights, lr, regularize=0, graph_sparse=False, print_freq=10, multi_class=False):
-        self.W      = self.init_weights(weights)
-        self.regularize = regularize
-        self.multi_class = multi_class
+    '''
+    Deep label propagation for predicting labels for unlabeled nodes.
+    See our paper for details.
+    '''
+    def __init__(self, num_iter,
+                       num_nodes,
+                       weights,
+                       lr,
+                       regularize=0,       # add L1 regularization to loss
+                       graph_sparse=False, # make the graph sparse
+                       print_freq=10,      # print frequency when training
+                       multi_class=False): # implementation for multiclass
+        self.weights      = self._init_weights(weights)
+
+        self._build_graph(self.weights,
+                          num_iter,
+                          num_nodes,
+                          weights,
+                          lr,
+                          regularize,
+                          graph_sparse,
+                          print_freq,
+                          multi_class))
+
+    def _build_graph(self,num_iter,
+                         num_nodes,
+                         weights,
+                         lr,
+                         regularize,
+                         graph_sparse,
+                         print_freq,
+                         multi_class):
+        self.start_time   = time.time()
+
+        # set instance variables
+        self.num_iter     = num_iter
+        self.lr           = lr
+        self.regularize   = regularize
         self.graph_sparse = graph_sparse
-        self.build_graph(iter_,lr,num_nodes)
+        self.print_freq   = print_freq
+        self.multi_class  = multi_class
 
-    def build_graph(self,iter_,lr,num_nodes):
-        self.start_time = time.time()
+        # initialize placeholders
+        shape                       = [None, num_nodes]
+        self.X                      = tf.placeholder("float", shape=shape)
+        self.y                      = tf.placeholder("float", shape=shape)
+        self.labeled_indices        = tf.placeholder("float", shape=shape)
+        self.unlabeled_indices      = tf.placeholder("float", shape=shape)
+        self.true_labeled_indices   = tf.placeholder("float", shape=shape)
+        self.true_unlabeled_indices = tf.placeholder("float", shape=shape)
 
-        self.lr     = lr
-        self.iter_  = iter_ # Layer size
+        self.yhat = self._forwardprop(self.X,
+                                      self.weights,
+                                      self.labeled_indices,
+                                      self.num_iter)
+        self._backwardprop()
 
-        shape             = [None, num_nodes]
-        self.X            = tf.placeholder("float", shape=shape)
-        self.y            = tf.placeholder("float", shape=shape)
-        self.unlabeled    = tf.placeholder("float", shape=shape)
-        self.labeled      = tf.placeholder("float", shape=shape)
-        self.masked       = tf.placeholder("float", shape=shape)
-        self.true_labeled = tf.placeholder("float", shape=shape)
+    def _get_val(self,val):
+        return self.sess.run(val)
 
-        self.yhat = self.forwardprop()
-        self.backwardprop()
-
-    def init_weights(self,weights_np):
-        """ Weight initialization """
+    def _init_weights(self,weights_np):
+        """ Weight initialization. """
         weights = tf.convert_to_tensor(weights_np, np.float32)
         return tf.Variable(weights)
 
-    def get_val(self,val):
-        return self.sess.run(val)
-
-    def forwardprop(self):
-        T = self.W / tf.reduce_sum(self.W, axis = 0, keep_dims=True)
+    def _tnorm(weights):
+        T = weights / tf.reduce_sum(weights, axis = 0, keep_dims=True)
         Tnorm = T / tf.reduce_sum(T, axis = 1, keep_dims=True)
+        return Tnorm
 
-        trueX = self.X
-        X = self.X
+    def _forwardprop(self, X,
+                           weights,
+                           labeled_indices,
+                           num_iter):
+        '''
+        Forward prop which mimicks LP.
+        '''
 
-        def layer(i,X,trueX,Tnorm):
-            h = tf.matmul(X,Tnorm,a_is_sparse=False, b_is_sparse=False)
-            h = tf.multiply(h, self.unlabeled) + tf.multiply(trueX, self.labeled)
-            return [i+1,h,trueX,Tnorm]
+        Tnorm = self._tnorm(weights)
+
+        def layer(i,h,X,Tnorm):
+            # propagate labels
+            h = tf.matmul(Tnorm,h)
+            # don't update labeled nodes
+            h[labeled_indices] = X[labeled_indices]
+            return [i+1,h,X,Tnorm]
 
         def condition(i,X,trueX,Tnorm):
-            return self.iter_ > i
+            return num_iter > i
 
-        _,h,_,_ = tf.while_loop(condition, layer, loop_vars=[0,X,trueX,Tnorm])
-        return h
+        _,yhat,_,_ = tf.while_loop(condition, layer, loop_vars=[0,X,X,Tnorm])
+        return yhat
 
-    def backwardprop(self):
-        # Backward propagation
-        if self.regularize:
-            self.loss = self.calc_loss(self.masked,self.y,self.yhat) + self.regularize*tf.nn.l2_loss(self.theta-1)
+    def _regularize_loss(self):
+        return 0
+        # tf.nn.l2_loss(self.theta-1)
+
+    def _backwardprop(self, y,
+                            yhat,
+                            labeled_indices,
+                            unlabeled_indices,
+                            regularize,
+                            lr):
+        '''
+        Backprop on unlabeled + masked labeled nodes.
+        Calculate loss and accuracy for both train and validation dataset.
+        '''
+        # backward propagation
+        loss = self._calc_loss(y,yhat,unlabeled_indices)
+                              + regularize * self._regularize_loss()
+        updates = tf.train.AdamOptimizer(lr).minimize(loss)
+        
+        # evaluate performance
+        accuracy      = self._calc_accuracy(y,yhat)
+        loss          = self._calc_loss(y,yhat,)
+        true_accuracy = self._calc_accuracy(y,yhat,validation=True)
+
+        return updates
+
+    def _calc_loss(self,y,yhat,indices):
+        if validation:
+            loss_mat = (y[self.]-yhat)
         else:
-            self.loss = self.calc_loss(self.masked,self.y,self.yhat)
-        self.updates = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
 
-        self.unlabeled_loss     = self.calc_loss((1-self.true_labeled),self.y,self.yhat)
-        self.accuracy           = self.calc_accuracy(self.y,self.yhat)
-        self.sol_unlabeled_loss = self.calc_loss((1-self.true_labeled),self.y,self.yhat)
-        self.sol_accuracy       = self.calc_accuracy(self.y,self.yhat,True)
-
-    def calc_loss(self,mask,y,yhat):
-        loss_mat = tf.multiply(mask, (y-yhat) ** 2 )
         return tf.reduce_sum(loss_mat) / tf.count_nonzero(loss_mat,dtype=tf.float32)
 
     def calc_accuracy(self,y,prob,full=False):

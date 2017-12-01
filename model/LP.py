@@ -14,25 +14,15 @@ class LP:
     def __init__(self):
         return
 
-    def tnorm(self,weights):
-        '''
-        Column normalize -> row normalize weights.
-        '''
-        # column normalize weights
-        T = weights / np.sum(weights, axis=0, keepdims=True)
-        # row normalize T
-        Tnorm = T / np.sum(T, axis=1, keepdims=True)
-        return Tnorm
-
-    def closed(self,labels,
-                    weights,
-                    labeled_indices,
-                    unlabeled_indices):
+    def closed(self, labels,
+                     weights,
+                     labeled_indices,
+                     unlabeled_indices):
         '''
         Closed solution of label propagation.
         '''
         # normalize T
-        Tnorm = self.tnorm(weights)
+        Tnorm = self._tnorm(weights)
         # sort Tnorm by unlabeled/labeld
         Tuu_norm = Tnorm[np.ix_(unlabeled_indices,unlabeled_indices)]
         Tul_norm = Tnorm[np.ix_(unlabeled_indices,labeled_indices)]
@@ -42,7 +32,7 @@ class LP:
         label_predictions = np.linalg.solve(lapliacian, propagated)
         return label_predictions
 
-    def iter_(self,labels,
+    def iter(self, X, # input labels
                    weights,
                    labeled_indices,
                    unlabeled_indices,
@@ -51,17 +41,17 @@ class LP:
         Iterated solution of label propagation.
         '''
         # normalize T
-        Tnorm = self.tnorm(weights)
-        Y = labels.copy()
+        Tnorm = self._tnorm(weights)
+        h = X.copy()
 
         for i in range(num_iter):
             # propagate labels
-            Y = np.dot(Tnorm,Y)
+            h = np.dot(Tnorm,h)
             # don't update labeled nodes
-            Y[labeled_indices] = labels[labeled_indices]
+            h[labeled_indices] = X[labeled_indices]
 
         # only return label predictions
-        return(Y[unlabeled_indices])
+        return(h[unlabeled_indices])
 
     def iter_multiclass(self,W,Ly,num_classes,num_unlabeled,iter_=-1):
         preds = []
@@ -71,7 +61,17 @@ class LP:
             if iter_ == -1:
                 pred = self.closed(W,Ly_class)
             else:
-                pred = self.iter_(W,Ly_class,Uy_class,iter_)
+                pred = self.iter(W,Ly_class,Uy_class,iter_)
             preds.append(pred)
         res = np.vstack(preds).T
         return res
+
+    def _tnorm(self,weights):
+        '''
+        Column normalize -> row normalize weights.
+        '''
+        # column normalize weights
+        T = weights / np.sum(weights, axis=0, keepdims=True)
+        # row normalize T
+        Tnorm = T / np.sum(T, axis=1, keepdims=True)
+        return Tnorm
