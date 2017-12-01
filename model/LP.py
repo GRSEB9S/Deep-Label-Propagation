@@ -7,37 +7,53 @@ from model.utils import rbf_kernel
 
 
 class LP:
-    def __init__(self,num_nodes,num_labeled):
-        self.num_nodes   = num_nodes
-        self.num_labeled = num_labeled
+    '''
+    Label propagation for predicting labels for unlabeled nodes.
+    Closed form and iterated solutions.
+    See mlg.eng.cam.ac.uk/zoubin/papers/CMU-CALD-02-107.pdf for details.
+    '''
+    def __init__(self):
+        return
 
-    def t(self,W):
-        return W / np.sum(W, axis=0, keepdims=True)
-
-    def tnorm(self,W):
-        T = self.t(W)
+    def tnorm(self,weights):
+        # column normalize weights
+        T = weights / np.sum(weights, axis=0, keepdims=True)
+        # row normalize T
         Tnorm = T / np.sum(T, axis=1, keepdims=True)
         return Tnorm
 
-    def closed(self,W,Ly):
-        n = len(Ly)
-        Tnorm = self.tnorm(W)
-        Tuu_norm = Tnorm[n:,n:]
-        Tul_norm = Tnorm[n:,:n]
-        a = (np.identity(len(Tuu_norm))-Tuu_norm)
-        b = Tul_norm @ Ly
-        Uy_lp = np.linalg.solve(a, b)
-        return Uy_lp
+    def closed(self,labels,
+                    weights,
+                    labeled_indices,
+                    unlabeled_indices):
+        # normalize T
+        Tnorm = self.tnorm(weights)
+        # sort Tnorm by unlabeled/labeld
+        Tuu_norm = Tnorm[np.ix_(unlabeled_indices,unlabeled_indices)]
+        Tul_norm = Tnorm[np.ix_(unlabeled_indices,labeled_indices)]
+        # closed form prediction for unlabeled nodes
+        lapliacian = (np.identity(len(Tuu_norm))-Tuu_norm)
+        propagated = Tul_norm @ labels[labeled_indices]
+        label_predictions = np.linalg.solve(lapliacian, propagated)
+        return label_predictions
 
-    def iter_(self,W,Ly,Uy,iter_):
-        Tnorm = self.tnorm(W)
-        Y = np.hstack((Ly,Uy))
+    def iter_(self,labels,
+                   weights,
+                   labeled_indices,
+                   unlabeled_indices,
+                   num_iter):
+        # normalize T
+        Tnorm = self.tnorm(weights)
+        Y = labels.copy()
 
-        for i in range(iter_):
-            Y = np.dot(Y,Tnorm)
-            Y[:self.num_labeled] = Ly
+        for i in range(num_iter):
+            # propagate labels
+            Y = np.dot(Tnorm,Y)
+            # don't update labeled nodes
+            Y[labeled_indices] = labels[labeled_indices]
 
-        return(Y[self.num_labeled:])
+        # only return label predictions
+        return(Y[unlabeled_indices])
 
     def iter_multiclass(self,W,Ly,num_classes,num_unlabeled,iter_=-1):
         preds = []
