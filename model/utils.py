@@ -3,11 +3,11 @@ import numpy as np
 import scipy as sp
 from sklearn import datasets
 
-def random_unlabel(true_labels,unlabel_prob=0.1):
+def random_unlabel(true_labels,unlabel_prob=0.1,hard=False):
     '''
     randomly unlabel nodes based on unlabel probability
     '''
-    labels = true_labels.copy()
+    labels = true_labels.copy().astype(float)
     n = len(labels)
     is_labeled = np.zeros(n)
     is_labeled.fill(True)
@@ -15,11 +15,13 @@ def random_unlabel(true_labels,unlabel_prob=0.1):
     unlabeled_indices = np.random.choice(n, int(n * unlabel_prob), replace=False)
     labeled_indices = np.delete(np.arange(n),unlabeled_indices)
     is_labeled.ravel()[unlabeled_indices] = False
-    labels[unlabeled_indices] = 0.5
-
+    if hard:
+        labels[unlabeled_indices] = 1 - labels[unlabeled_indices]
+    else:
+        labels[unlabeled_indices] = 0.5
     return labels, is_labeled, labeled_indices, unlabeled_indices
 
-def rbf_kernel(X,s=None,G=[],percentile=3):
+def rbf_kernel(X,s=1,G=[],percentile=3):
     '''
     Use RBF kernel to calculate the weights of edges.
     If given a graph G, drop edges not in G.
@@ -27,21 +29,17 @@ def rbf_kernel(X,s=None,G=[],percentile=3):
     '''
     # use rbf kernel to estimate weights
     pairwise_dists = squareform(pdist(X, 'euclidean'))
-    if not s:
-        s = 1
     K = sp.exp(-pairwise_dists ** 2 / s ** 2)
 
-    if len(G) == 0:
+    if G == []:
         threshold = np.percentile(K,percentile)
         np.fill_diagonal(K, 0)
 
-        def get_neighbors(arr):
-            # index = arr.argsort()[:-5][::-1]
-            index = np.where(arr < threshold)
-            arr[index] = 0
-            return arr
-
-        K = np.apply_along_axis(get_neighbors, 0, K)
+        Knew = (K * K > threshold)
+        argmax = np.argmax(K,axis=1)
+        Knew[np.arange(len(K)), argmax] = K[np.arange(len(K)), argmax]
+        Knew[argmax,np.arange(len(K))] = K[np.arange(len(K)), argmax]
+        K = Knew
     else:
         K = K * G
 
@@ -128,9 +126,16 @@ def objective(Ly,Uy_lp,W):
 def prob_to_one_hot(prob):
     return (prob == prob.max(axis=1)[:,None]).astype(int)
 
-def array_to_one_hot(vec,num_samples, num_classes):
-    res = np.zeros((num_samples, num_classes))
-    res[np.arange(num_samples), vec.astype(int)] = 1
+def array_to_one_hot(vec):
+    num_nodes = len(vec)
+    num_classes = len(set(vec))
+    res = np.zeros((num_nodes, num_classes))
+    res[np.arange(num_nodes), vec.astype(int)] = 1
+    return res
+
+def indices_to_vec(labeled_indices, num_nodes):
+    res = np.zeros(num_nodes)
+    res[labeled_indices] = 1
     return res
 
 def accuracy_mult(sol,pred):

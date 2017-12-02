@@ -20,24 +20,21 @@ class DeepLP:
                        multi_class=False): # implementation for multiclass
         self.weights      = self._init_weights(weights)
 
-        self._build_graph(self.weights,
-                          num_iter,
+        self._build_graph(num_iter,
                           num_nodes,
-                          weights,
                           lr,
                           regularize,
                           graph_sparse,
                           print_freq,
                           multi_class)
 
-    def _build_graph(self,num_iter,
-                         num_nodes,
-                         weights,
-                         lr,
-                         regularize,
-                         graph_sparse,
-                         print_freq,
-                         multi_class):
+    def _build_graph(self, num_iter,
+                           num_nodes,
+                           lr,
+                           regularize,
+                           graph_sparse,
+                           print_freq,
+                           multi_class):
         self.start_time   = time.time()
 
         # set instance variables
@@ -49,41 +46,41 @@ class DeepLP:
         self.multi_class  = multi_class
 
         # initialize placeholders
-        shape                       = [None, num_nodes]
-        self.X                      = tf.placeholder("float", shape=shape)
-        self.y                      = tf.placeholder("float", shape=shape)
-        self.labeled_indices        = tf.placeholder("float", shape=shape)
-        self.unlabeled_indices      = tf.placeholder("float", shape=shape)
-        self.true_labeled_indices   = tf.placeholder("float", shape=shape)
-        self.true_unlabeled_indices = tf.placeholder("float", shape=shape)
+        shape             = [None, num_nodes]
+        self.X            = tf.placeholder("float", shape=shape)
+        self.y            = tf.placeholder("float", shape=shape)
+        self.labeled      = tf.placeholder("float", shape=shape)
+        self.true_labeled = tf.placeholder("float", shape=shape)
+        self.masked       = tf.placeholder("float", shape=shape)
 
-        self.yhat                   = self._forwardprop(self.X,
-                                                        self.weights,
-                                                        self.labeled_indices,
-                                                        self.num_iter)
+        self.yhat         = self._forwardprop(self.X,
+                                              self.weights,
+                                              self.labeled,
+                                              self.num_iter)
         self.update, self.metrics   = self._backwardprop(self.y,
                                                          self.yhat,
-                                                         self.labeled_indices,
-                                                         self.unlabeled_indices,
+                                                         self.labeled,
+                                                         self.true_labeled,
+                                                         self.masked,
                                                          self.regularize,
                                                          self.lr)
 
-    def _get_val(self,val):
+    def _get_val(self, val):
         return self.sess.run(val)
 
-    def _init_weights(self,weights_np):
+    def _init_weights(self, weights_np):
         """ Weight initialization. """
         weights = tf.convert_to_tensor(weights_np, np.float32)
         return tf.Variable(weights)
 
-    def _tnorm(weights):
+    def _tnorm(self, weights):
         T = weights / tf.reduce_sum(weights, axis = 0, keep_dims=True)
         Tnorm = T / tf.reduce_sum(T, axis = 1, keep_dims=True)
         return Tnorm
 
     def _forwardprop(self, X,
                            weights,
-                           labeled_indices,
+                           labeled,
                            num_iter):
         '''
         Forward prop which mimicks LP.
@@ -93,9 +90,9 @@ class DeepLP:
 
         def layer(i,h,X,Tnorm):
             # propagate labels
-            h = tf.matmul(Tnorm,h)
+            h = tf.matmul(h,Tnorm,transpose_b=True)
             # don't update labeled nodes
-            h[labeled_indices] = X[labeled_indices]
+            h = tf.multiply(h, (1-labeled)) + tf.multiply(X, labeled)
             return [i+1,h,X,Tnorm]
 
         def condition(i,X,trueX,Tnorm):
@@ -110,8 +107,9 @@ class DeepLP:
 
     def _backwardprop(self, y,
                             yhat,
-                            labeled_indices,
-                            unlabeled_indices,
+                            labeled,
+                            true_labeled,
+                            masked,
                             regularize,
                             lr):
         '''
@@ -119,31 +117,34 @@ class DeepLP:
         Calculate loss and accuracy for both train and validation dataset.
         '''
         # backward propagation
-        loss          = (self._calc_loss(y,yhat,unlabeled_indices)
-                            + regularize * self._regularize_loss())
-        updates       = tf.train.AdamOptimizer(lr).minimize(loss)
+        l_o_loss      = (self._calc_loss(y,yhat,masked)
+                              + regularize * self._regularize_loss())
+        update        = tf.train.AdamOptimizer(lr).minimize(l_o_loss)
 
         # evaluate performance
-        accuracy      = self._calc_accuracy(y,yhat,unlabeled_indices)
-        true_loss     = self._calc_loss(y,yhat,labeled_indices)
-        true_accuracy = self._calc_accuracy(y,yhat,labeled_indices)
+        loss          = self._calc_loss(y,yhat,1-labeled)
+        # labeled_loss  = self._calc_loss(y,yhat,labeled)
+        accuracy      = self._calc_accuracy(y,yhat,1-labeled)
+        true_loss     = self._calc_loss(y,yhat,1-true_labeled)
+        true_accuracy = self._calc_accuracy(y,yhat,1-true_labeled)
 
-        metrics = [loss, accuracy, true_loss, true_accuracy]
+        metrics = {
+            'loss': loss,
+            'labeled_loss': l_o_loss,
+            'accuracy': accuracy,
+            'true_loss': true_loss,
+            'true_accuracy': true_accuracy
+        }
 
-        return updates, metrics
+        return update, metrics
 
-    def _calc_loss(self,y,yhat,indices):
-        loss_mat = (y[indices]-yhat[indices]) ** 2
-        return tf.reduce_mean(loss_mat)
+    def _calc_loss(self,y,yhat,mask):
+        loss_mat = tf.multiply(mask, (y-yhat) ** 2 )
+        return tf.reduce_sum(loss_mat) / tf.count_nonzero(loss_mat,dtype=tf.float32)
 
-    def _calc_accuracy(self,y,prob,indices):
-        if self.multi_class:
-            print(y,prob)
-            yhat = tf.to_float(tf.equal(prob,tf.reduce_max(prob,axis=1)))
-            return tf.reduce_all(tf.equal(yhat,y),axis=1)
-        else:
-            acc_mat = tf.cast(tf.equal(tf.round(yhat[indices]),y[indices]),tf.float32)
-            return tf.reduce_sum(acc_mat) / tf.count_nonzero((1-self.true_labeled),dtype=tf.float32)
+    def _calc_accuracy(self,y,yhat,mask):
+        acc_mat = tf.multiply(mask,tf.cast(tf.equal(tf.round(yhat),y),tf.float32))
+        return tf.reduce_sum(acc_mat) / tf.count_nonzero(mask,dtype=tf.float32)
 
     def _open_sess(self):
         self.sess = tf.Session()
@@ -157,67 +158,72 @@ class DeepLP:
 
     def _eval(self,vals,data):
         return self.sess.run(vals, feed_dict={self.X:data['X'],
-                                    self.y:data['y'],
-                                    self.unlabeled:data['unlabeled'],
-                                    self.labeled:data['labeled'],
-                                    self.masked:data['masked'],
-                                    self.true_labeled:data['true_labeled']})
+                                              self.y:data['y'],
+                                              self.labeled:data['labeled'],
+                                              self.true_labeled:data['true_labeled'],
+                                              self.masked:data['masked']})
 
-    def save_params(self,epoch,data,n):
+    def _save_params(self,epoch,data,n):
         pass
 
-    def save(self,epoch,data,full_data,n):
-        labeled_loss,unlabeled_loss,accuracy = self.eval([self.loss,self.unlabeled_loss,self.accuracy],data)
-        sol_accuracy,sol_unlabeled_loss      = self.eval([self.sol_accuracy,self.sol_unlabeled_loss],full_data)
+    def _save(self,epoch,data,validation_data,n):
+
+        loss,labeled_loss,accuracy = self._eval([self.metrics['loss'],self.metrics['labeled_loss'],self.metrics['accuracy']],data)
+        true_loss,true_accuracy    = self._eval([self.metrics['true_loss'],self.metrics['true_accuracy']],validation_data)
+        self.losses.append(loss)
         self.labeled_losses.append(labeled_loss)
-        self.unlabeled_losses.append(unlabeled_loss)
         self.accuracies.append(accuracy)
-        self.sol_accuracies.append(sol_accuracy)
-        self.sol_unlabeled_losses.append(sol_unlabeled_loss)
+        self.true_losses.append(true_loss)
+        self.true_accuracies.append(true_accuracy)
+
         if epoch % 1 == 0 or epoch == -1:
-            print("epoch:",epoch,"labeled loss:",labeled_loss,"unlabeled loss:",unlabeled_loss,"accuracy:",accuracy,"sol unlabeled loss:",sol_unlabeled_loss,"sol accuracy:",sol_accuracy)
+            print("epoch:",epoch,
+                  "labeled loss:",labeled_loss,
+                  "unlabeled loss:",loss,
+                  "accuracy:",accuracy,
+                  "true unlabeled loss:",true_loss,
+                  "true accuracy:",true_accuracy)
             print("--- %s seconds ---" % (time.time() - self.start_time))
             self.start_time = time.time()
-        self.save_params(epoch,data,n)
+        self._save_params(epoch,data,n)
 
-    def train(self,data,full_data,epochs):
-        self.open_sess()
+    def train(self,data,validation_data,epochs):
+        self._open_sess()
 
         n = len(data['X'])
+        self.losses = []
         self.labeled_losses = []
-        self.unlabeled_losses = []
         self.accuracies = []
-        self.sol_accuracies = []
-        self.sol_unlabeled_losses = []
-        self.save(-1,data,full_data,n)
+        self.true_losses = []
+        self.true_accuracies = []
+        self._save(-1,data,validation_data,n)
         for epoch in range(epochs):
             # Train with each example
-            self.eval(self.updates,data)
-            # print("--- %s seconds ---" % (time.time() - self.start_time))
-            # self.start_time = time.time()
-            self.save(epoch,data,full_data,n)
-        # self.close_sess()
+            self._eval(self.update,data)
+            print("--- %s seconds ---" % (time.time() - self.start_time))
+            self.start_time = time.time()
+            self._save(epoch,data,validation_data,n)
 
-    def plot_loss(self):
+    def _plot_loss(self):
         plt.plot(self.labeled_losses,label="labeled loss")
-        plt.plot(self.unlabeled_losses,label="unlabeled loss")
-        plt.plot(self.sol_unlabeled_losses,label='validation unlabeled loss')
+        plt.plot(self.losses,label="unlabeled loss")
+        plt.plot(self.true_losses,label='validation unlabeled loss')
         plt.title("loss")
         plt.legend()
         plt.show()
 
-    def plot_accuracy(self):
+    def _plot_accuracy(self):
         plt.plot(self.accuracies,label="DeepLP, train")
-        plt.plot([self.sol_accuracies[0]] * len(self.accuracies),label="LP")
-        plt.plot(self.sol_accuracies,label="DeepLP, validation")
+        plt.plot([self.true_accuracies[0]] * len(self.accuracies),label="LP")
+        plt.plot(self.true_accuracies,label="DeepLP, validation")
         plt.title("accuracy")
         plt.legend()
         plt.show()
 
-    def plot_params(self):
+    def _plot_params(self):
         pass
 
     def plot(self):
-        self.plot_loss()
-        self.plot_accuracy()
-        self.plot_params()
+        self._plot_loss()
+        self._plot_accuracy()
+        self._plot_params()

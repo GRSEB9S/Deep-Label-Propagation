@@ -53,15 +53,21 @@ class LP:
         # only return label predictions
         return(h[unlabeled_indices])
 
-    def iter_multiclass(self,W,Ly,num_classes,num_unlabeled,iter_=-1):
+    def iter_multiclass(self,X, # input labels
+                              weights,
+                              labeled_indices,
+                              unlabeled_indices,
+                              num_iter=-1):
         preds = []
+        num_classes = len(set(X))
         for class_ in range(num_classes):
-            Ly_class = Ly == class_
-            Uy_class = np.array([1/num_classes] * num_unlabeled)
-            if iter_ == -1:
-                pred = self.closed(W,Ly_class)
+            X_class = X.copy()
+            X_class[labeled_indices] = X_class[labeled_indices] == class_
+            X_class[unlabeled_indices] = np.array([1/num_classes] * len(unlabeled_indices))
+            if num_iter == -1:
+                pred = self.closed(X_class,weights,labeled_indices,unlabeled_indices)
             else:
-                pred = self.iter(W,Ly_class,Uy_class,iter_)
+                pred = self.iter(X_class,weights,labeled_indices,unlabeled_indices,iter_)
             preds.append(pred)
         res = np.vstack(preds).T
         return res
