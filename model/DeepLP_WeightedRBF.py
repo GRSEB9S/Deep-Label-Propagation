@@ -45,14 +45,13 @@ class DeepLP_WeightedRBF(DeepLP_RBF):
         self.thetas = []
         super().train(data,full_data,epochs)
 
-    def labelprop(self,data,theta):
-        self._open_sess()
-        print('hi')
-        self.theta   = tf.Variable(tf.convert_to_tensor(theta, dtype=tf.float32))
-        self.phi     = self.features * self.theta
-        self.weights = self._init_weights(self.phi, self.graph, self.sigma)
-        pred = self._eval(self.yhat,data)
-        return pred
+    # def labelprop(self,data,theta):
+    #     self._open_sess()
+    #     self.theta   = tf.Variable(tf.convert_to_tensor(theta, dtype=tf.float32))
+    #     self.phi     = self.features * self.theta
+    #     self.weights = self._init_weights(self.phi, self.graph, self.sigma)
+    #     pred = self._eval(self.yhat,data)
+    #     return pred
 
     def _plot_params(self):
         plt.plot(self.thetas)

@@ -74,8 +74,7 @@ class DeepLP:
         return tf.Variable(weights)
 
     def _tnorm(self, weights):
-        T = weights / tf.reduce_sum(weights, axis = 0, keep_dims=True)
-        Tnorm = T / tf.reduce_sum(T, axis = 1, keep_dims=True)
+        Tnorm = weights / tf.reduce_sum(weights, axis = 1, keep_dims=True)
         return Tnorm
 
     def _forwardprop(self, X,
@@ -140,11 +139,14 @@ class DeepLP:
 
     def _calc_loss(self,y,yhat,mask):
         loss_mat = tf.multiply(mask, (y-yhat) ** 2 )
-        return tf.reduce_sum(loss_mat) / tf.count_nonzero(loss_mat,dtype=tf.float32)
+        return tf.reduce_sum(loss_mat) / tf.count_nonzero(mask,dtype=tf.float32)
 
-    def _calc_accuracy(self,y,yhat,mask):
+    def _calc_accuracy(self,y,yhat,mask,true_data=False):
         acc_mat = tf.multiply(mask,tf.cast(tf.equal(tf.round(yhat),y),tf.float32))
-        return tf.reduce_sum(acc_mat) / tf.count_nonzero(mask,dtype=tf.float32)
+        if true_data:
+            return tf.reduce_sum(acc_mat) / tf.count_nonzero(mask,dtype=tf.float32)
+        else:
+            return tf.reduce_sum(acc_mat) / tf.count_nonzero(mask,dtype=tf.float32)
 
     def _open_sess(self):
         self.sess = tf.Session()
@@ -153,8 +155,26 @@ class DeepLP:
 
     def labelprop(self,data):
         self._open_sess()
-        pred = self._eval(self.yhat,data)
-        return pred
+        l_o_loss      = (self._calc_loss(self.y,self.yhat,self.masked)
+                              + self.regularize * self._regularize_loss())
+        # evaluate performance
+        loss          = self._calc_loss(self.y,self.yhat,1-self.labeled)
+        # labeled_loss  = self._calc_loss(y,yhat,labeled)
+        accuracy      = self._calc_accuracy(self.y,self.yhat,1-self.labeled)
+        true_loss     = self._calc_loss(self.y,self.yhat,1-self.true_labeled)
+        true_accuracy = self._calc_accuracy(self.y,self.yhat,1-self.true_labeled)
+
+        pred,l_o_loss_,loss_,accuracy_,true_loss_,true_accuracy_ = self._eval([self.yhat,l_o_loss,loss,accuracy,true_loss,true_accuracy],data)
+        metrics = {
+            'loss': loss_,
+            'labeled_loss': l_o_loss_,
+            'accuracy': accuracy_,
+            'true_loss': true_loss_,
+            'true_accuracy': true_accuracy_
+        }
+        print(metrics)
+
+        return pred, metrics
 
     def _eval(self,vals,data):
         return self.sess.run(vals, feed_dict={self.X:data['X'],

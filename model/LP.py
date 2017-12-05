@@ -34,8 +34,7 @@ class LP:
 
     def iter(self, X, # input labels
                    weights,
-                   labeled_indices,
-                   unlabeled_indices,
+                   labeled,
                    num_iter):
         '''
         Iterated solution of label propagation.
@@ -46,12 +45,12 @@ class LP:
 
         for i in range(num_iter):
             # propagate labels
-            h = np.dot(Tnorm,h)
+            h = np.dot(h,Tnorm.T)
             # don't update labeled nodes
-            h[labeled_indices] = X[labeled_indices]
+            h = h * (1-labeled) + X * labeled
 
         # only return label predictions
-        return(h[unlabeled_indices])
+        return h
 
     def iter_multiclass(self,X, # input labels
                               weights,
@@ -65,9 +64,9 @@ class LP:
             X_class[labeled_indices] = X_class[labeled_indices] == class_
             X_class[unlabeled_indices] = np.array([1/num_classes] * len(unlabeled_indices))
             if num_iter == -1:
-                pred = self.closed(X_class,weights,labeled_indices,unlabeled_indices)
+                pred = closed(X_class,weights,labeled_indices,unlabeled_indices)
             else:
-                pred = self.iter(X_class,weights,labeled_indices,unlabeled_indices,iter_)
+                pred = iter(X_class,weights,labeled_indices,unlabeled_indices,iter_)
             preds.append(pred)
         res = np.vstack(preds).T
         return res
@@ -76,8 +75,6 @@ class LP:
         '''
         Column normalize -> row normalize weights.
         '''
-        # column normalize weights
-        T = weights / np.sum(weights, axis=0, keepdims=True)
         # row normalize T
-        Tnorm = T / np.sum(T, axis=1, keepdims=True)
+        Tnorm = weights / np.sum(weights, axis=1, keepdims=True)
         return Tnorm

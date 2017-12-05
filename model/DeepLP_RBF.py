@@ -49,11 +49,11 @@ class DeepLP_RBF(DeepLP):
         self.sigmas = []
         super().train(data,full_data,epochs)
 
-    def labelprop(self,data,sigma):
-        self._open_sess()
-        self.weights = self._init_weights(self.phi,self.graph,sigma)
-        pred = self._eval(self.yhat,data)
-        return pred
+    # def labelprop(self,data,sigma):
+    #     self._open_sess()
+    #     self.weights = self._init_weights(self.phi,self.graph,sigma)
+    #     pred = self._eval(self.yhat,data)
+    #     return pred
 
     def _plot_params(self):
         plt.plot(self.sigmas)

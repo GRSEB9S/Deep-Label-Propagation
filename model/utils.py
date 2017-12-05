@@ -12,10 +12,12 @@ def random_unlabel(true_labels,unlabel_prob=0.1,hard=False):
     is_labeled = np.zeros(n)
     is_labeled.fill(True)
 
-    unlabeled_indices = np.random.choice(n, int(n * unlabel_prob), replace=False)
+    unlabeled_indices = np.arange(int(n * unlabel_prob))
+    # unlabeled_indices = np.array(sorted(np.random.choice(n, int(n * unlabel_prob), replace=False)))
     labeled_indices = np.delete(np.arange(n),unlabeled_indices)
     is_labeled.ravel()[unlabeled_indices] = False
     if hard:
+        print('hard initialization')
         labels[unlabeled_indices] = 1 - labels[unlabeled_indices]
     else:
         labels[unlabeled_indices] = 0.5
@@ -30,17 +32,20 @@ def rbf_kernel(X,s=1,G=[],percentile=3):
     # use rbf kernel to estimate weights
     pairwise_dists = squareform(pdist(X, 'euclidean'))
     K = sp.exp(-pairwise_dists ** 2 / s ** 2)
+    # K = features @ features.T/
 
     if G == []:
+        print('graph constructed')
         threshold = np.percentile(K,percentile)
         np.fill_diagonal(K, 0)
 
-        Knew = (K * K > threshold)
+        Knew = K * (K > threshold)
         argmax = np.argmax(K,axis=1)
         Knew[np.arange(len(K)), argmax] = K[np.arange(len(K)), argmax]
         Knew[argmax,np.arange(len(K))] = K[np.arange(len(K)), argmax]
         K = Knew
     else:
+        print('graph given')
         K = K * G
 
     return K
